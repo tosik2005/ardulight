@@ -1,4 +1,4 @@
-# Проєкт керування білою світлодіодною стрічкою WS2811 та радарами
+# WS2811 white LED strip and radar control project
 
 ## 1. General description
 
@@ -34,17 +34,17 @@ The strip uses white LEDs with a color temperature of 6000K. Control is not done
 
 ## 4. Single pixel structure
 
-Один піксель WS2811 керує 30 білими світлодіодами.
+One WS2811 pixel controls 30 white LEDs.
 
-Усередині пікселя світлодіоди розділені на 3 блоки по 10 світлодіодів:
+Inside the pixel, the LEDs are divided into 3 blocks of 10 LEDs each:
 
-|Канал WS2811|     Блок світлодіодів      |          Призначення                |
-|------------|----------------------------|-------------------------------------|
-|    R       | перші 10 світлодіодів      | керування яскравістю першого блоку  |
-|    G       | середні 10 світлодіодів    | керування яскравістю другого блоку  |
-|    B       | останні 10 світлодіодів    | керування яскравістю третього блоку |
+|channel WS2811|       block of LEDs      |              Appointment            |
+|--------------|--------------------------|-------------------------------------|
+|       R      | first 10 LEDs            | brightness control first block      |
+|       G      | second 10 LEDs           | brightness control first block      |
+|       B      | last 10 LEDs             | brightness control first block      |
 
-Оскільки світлодіоди білі, значення R/G/B розглядаються не як колір, а як рівні яскравості відповідних блоків.
+Since the LEDs are white, the R/G/B values are not considered as color, but as brightness levels of the corresponding blocks
 
 ---
 
