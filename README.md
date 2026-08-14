@@ -1,40 +1,38 @@
 # Проєкт керування білою світлодіодною стрічкою WS2811 та радарами
 
-## 1. Загальний опис
+## 1. General description
 
-Проєкт призначений для керування світлодіодною стрічкою на базі WS2811 за допомогою Arduino Mega 2560 R3 з подальшою інтеграцією радарів.
 
-Стрічка використовує білі світлодіоди з колірною температурою 6000K. Керування відбувається не як класичним RGB-кольором, а як каналами яскравості для окремих блоків світлодіодів усередині пікселя.
+The prodject is designed to control a WS2811-based LED strip using an Arduino Mega 2560 R3 with subsequent radar integration.
+
+The strip uses white LEDs with a color temperature of 6000K. Control is not done as a classic RGB-color strips, but as brithness channels for individual LED blocks within a pixel.
 
 ---
 
-## 2. Стан проєкту
+## 2. Project status
 
-|     Напрямок      |         Статус      |                         Примітка                 |
+|      Section      |         Status      |                         Note                     |
 |-------------------|---------------------|--------------------------------------------------|
-| Апаратна частина  |    У роботі         | На макеті є 2 пікселі WS2811                     |
-| Програмна частина |    У роботі         | Arduino Mega 2560 R3                             |
-| Радари            | Очікує даних        | Логіка буде додана після фактичних логів і подій |
-| README            | Паралельна розробка | Оновлюється за підтвердженими фактами            |
+| Hardware part     |        at work      | there are 2 ws2811 pixels on the layout          |
+| Software part     |        at work      | Arduino Mega 2560 R3                             |
+| Radars            |        at work      | setting gate levels via USB-TTL adapter          |
+| README            | constantly updated  | updated based on confirmed facts                 |
 
 ---
 
-## 3. Використані компоненти
-
-### Керуючий контролер
-
-- Arduino Mega 2560 R3.
-
-### Світлодіодна частина
-
-- драйвер/пікселі: WS2811;
-- тип світлодіодів: білі;
-- колірна температура: 6000K;
-- один піксель керує блоком із 30 світлодіодів.
+## 3. Components used
+-- Arduino Mega 2560 R3
+-- led strip based on all WS2811 chips 24V
+-- presence sensor HLK-LD2410C-P
+-- DC power unit 24 V
+-- DC-DC step-down controller LM2596
+-- 8-channel logic level equalizer
+-- super diode
+-- other electrical components
 
 ---
 
-## 4. Структура одного пікселя
+## 4. Single pixel structure
 
 Один піксель WS2811 керує 30 білими світлодіодами.
 
