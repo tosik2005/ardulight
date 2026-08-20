@@ -8,23 +8,27 @@
 
 CRGB leds[NUM_LEDS];
 
-// --- Налаштування плавності ---
-int brightness0 = 0;
-int brightness1 = 0;
-int fadeSpeed = 15;
+int currentBright0 = 0;
+int currentBright1 = 0;
+int targetBright0  = 0;
+int targetBright1  = 0;
+
+int fadeSpeed = 15; 
 unsigned long lastFadeTime = 0;
 
 struct RadarState {
-  byte buffer[48];
+  byte buffer[64];
   byte index = 0;
   bool isDetected = false;
+  uint16_t distance = 0;
   unsigned long lastPacketTime = 0;
 };
 
 RadarState radar0State; // Serial2 (16 TX / 17 RX) -> Pixel 0
 RadarState radar1State; // Serial1 (18 TX / 19 RX) -> Pixel 1
 
-bool processRadar(HardwareSerial& radarSerial, RadarState& state);
+void processRadarDynamic(HardwareSerial& radarSerial, RadarState& state);
+int calculateTargetBrightness(bool isDetected, uint16_t distance);
 
 void setup() {
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
@@ -36,59 +40,79 @@ void setup() {
   Serial1.begin(256000);  // Радар 1
   Serial2.begin(256000);  // Радар 0
 
-  Serial.println("System started with updated LD2410 parser!");
+  Serial.println("System ready: Dynamic Stream Parser");
 }
 
 void loop() {
-  // КРОК 1: Опитування радарів
-  bool radar0_active = processRadar(Serial2, radar0State); 
-  bool radar1_active = processRadar(Serial1, radar1State); 
+  // 1. Зчитуємо дані з радарів
+  processRadarDynamic(Serial2, radar0State); 
+  processRadarDynamic(Serial1, radar1State); 
 
-  // КРОК 2: Плавне керування світлом (50 FPS)
+  // 2. Вираховуємо необхідну яскравість
+  targetBright0 = calculateTargetBrightness(radar0State.isDetected, radar0State.distance);
+  targetBright1 = calculateTargetBrightness(radar1State.isDetected, radar1State.distance);
+
+  // 3. Плавна зміна яскравості (50 кадрів/сек)
   unsigned long currentMillis = millis();
-  
   if (currentMillis - lastFadeTime >= 20) {
     lastFadeTime = currentMillis;
 
-    // Піксель 0 (Радар 0)
-    if (radar0_active) {
-      brightness0 = min(255, brightness0 + fadeSpeed);
-    } else {
-      brightness0 = max(0, brightness0 - fadeSpeed);
-    }
+    // Піксель 0
+    if (currentBright0 < targetBright0) currentBright0 = min(targetBright0, currentBright0 + fadeSpeed);
+    else if (currentBright0 > targetBright0) currentBright0 = max(targetBright0, currentBright0 - fadeSpeed);
 
-    // Піксель 1 (Радар 1)
-    if (radar1_active) {
-      brightness1 = min(255, brightness1 + fadeSpeed);
-    } else {
-      brightness1 = max(0, brightness1 - fadeSpeed);
-    }
+    // Піксель 1
+    if (currentBright1 < targetBright1) currentBright1 = min(targetBright1, currentBright1 + fadeSpeed);
+    else if (currentBright1 > targetBright1) currentBright1 = max(targetBright1, currentBright1 - fadeSpeed);
 
-    leds[0] = CRGB(brightness0, brightness0, brightness0);
-    leds[1] = CRGB(brightness1, brightness1, brightness1);
+    // Використовуємо HSV (Hue=0, Saturation=0, Value=Brightness) для чистого білого світла
+    leds[0] = CHSV(0, 0, currentBright0);
+    leds[1] = CHSV(0, 0, currentBright1);
 
     FastLED.show();
   }
 
-  // КРОК 3: Діагностика в консоль
+  // 4. Монітор порту
   static unsigned long lastLog = 0;
   if (currentMillis - lastLog >= 300) {
-    lastLog = millis();
-    Serial.print("Pixel 0: ");
-    Serial.print(radar0_active ? "[ON ] " : "[OFF] ");
-    Serial.print(" | Pixel 1: ");
-    Serial.println(radar1_active ? "[ON ]" : "[OFF]");
+    lastLog = currentMillis;
+    
+    Serial.print("R0: ");
+    if (radar0State.isDetected) {
+      Serial.print("DET ("); Serial.print(radar0State.distance); 
+      Serial.print("cm) -> Br:"); Serial.print(targetBright0);
+    } else {
+      Serial.print("OFF                ");
+    }
+
+    Serial.print(" | R1: ");
+    if (radar1State.isDetected) {
+      Serial.print("DET ("); Serial.print(radar1State.distance); 
+      Serial.print("cm) -> Br:"); Serial.println(targetBright1);
+    } else {
+      Serial.println("OFF");
+    }
   }
 }
 
-// =========================================================
-// УНІВЕРСАЛЬНИЙ ПАРСЕР LD2410 (Звичайний + Інженерний режим)
-// =========================================================
-bool processRadar(HardwareSerial& radarSerial, RadarState& state) {
+int calculateTargetBrightness(bool isDetected, uint16_t distance) {
+  if (!isDetected) return 0;
+
+  if (distance <= 40) {
+    return 255;
+  } else if (distance >= 120) {
+    return 10;
+  } else {
+    return map(distance, 40, 120, 255, 10);
+  }
+}
+
+// Потоковий парсер з динамічним пошуком маркера кінця
+void processRadarDynamic(HardwareSerial& radarSerial, RadarState& state) {
   while (radarSerial.available()) {
     byte b = radarSerial.read();
 
-    // Перевірка заголовка: F4 F3 F2 F1
+    // Заголовок кадру: F4 F3 F2 F1
     if (state.index == 0 && b != 0xF4) continue;
     if (state.index == 1 && b != 0xF3) { state.index = 0; continue; }
     if (state.index == 2 && b != 0xF2) { state.index = 0; continue; }
@@ -96,36 +120,43 @@ bool processRadar(HardwareSerial& radarSerial, RadarState& state) {
 
     state.buffer[state.index++] = b;
 
-    // Мінімальна довжина кадру для зчитування стану — 9 байт
-    if (state.index >= 9) {
-      // Маска 0x7F прибирає інженерний прапор 0x80 (128 -> 0, 129 -> 1, 130 -> 2)
-      byte targetStatus = state.buffer[8] & 0x7F; 
-      
-      if (targetStatus > 0x00 && targetStatus <= 0x03) {
-        state.isDetected = true;
-        state.lastPacketTime = millis();
-      }
-    }
-
-    // Перевірка кінця кадру (F8 F7 F6 F5) або переповнення буфера
+    // Перевіряємо останні 4 байти на маркер кінця F8 F7 F6 F5
     if (state.index >= 8) {
-      if (state.buffer[state.index - 4] == 0xF8 && 
-          state.buffer[state.index - 3] == 0xF7 && 
-          state.buffer[state.index - 2] == 0xF6 && 
+      if (state.buffer[state.index - 4] == 0xF8 &&
+          state.buffer[state.index - 3] == 0xF7 &&
+          state.buffer[state.index - 2] == 0xF6 &&
           state.buffer[state.index - 1] == 0xF5) {
-        state.index = 0; // Кадр успішно закритий
+        
+        // Кадр повністю зібрано!
+        if (state.index >= 14) { // Перевірка наявності даних про стан і дистанцію
+          byte targetStatus = state.buffer[8] & 0x7F;
+
+          if (targetStatus > 0x00 && targetStatus <= 0x03) {
+            state.isDetected = true;
+            state.lastPacketTime = millis();
+
+            uint16_t moveDist = state.buffer[9] | (state.buffer[10] << 8);
+            uint16_t staticDist = state.buffer[12] | (state.buffer[13] << 8);
+
+            if (targetStatus == 0x01) state.distance = moveDist;
+            else if (targetStatus == 0x02) state.distance = staticDist;
+            else if (targetStatus == 0x03) state.distance = min(moveDist, staticDist);
+          } else {
+            state.isDetected = false;
+          }
+        }
+        state.index = 0; // Скидаємо буфер для наступного кадру
       }
     }
 
-    if (state.index >= 45) {
-      state.index = 0; // Захист від виходу за межі
+    // Захист від переповнення
+    if (state.index >= 60) {
+      state.index = 0;
     }
   }
 
-  // Таймаут 2000 мс (перекриває паузи радарів у 1.4 с)
-  if (millis() - state.lastPacketTime > 2000) {
+  // Таймаут втрати зв'язку (1.2 сек)
+  if (millis() - state.lastPacketTime > 1200) {
     state.isDetected = false;
   }
-
-  return state.isDetected;
 }
