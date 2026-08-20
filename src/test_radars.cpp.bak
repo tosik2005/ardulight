@@ -1,0 +1,111 @@
+#include <Arduino.h>
+
+struct RadarDiag {
+  byte buffer[32];
+  byte index = 0;
+  
+  // Статистика та таймінги
+  unsigned long lastPacketTime = 0;
+  unsigned long detectStartTime = 0;
+  unsigned long frameCount = 0;
+  
+  bool isDetected = false;
+  byte targetState = 0;
+  uint16_t moveDist = 0;
+  uint16_t staticDist = 0;
+};
+
+RadarDiag r0, r1;
+
+void processRadarDiag(HardwareSerial& port, RadarDiag& r, const char* name) {
+  while (port.available()) {
+    byte b = port.read();
+
+    // Заголовок LD2410: F4 F3 F2 F1
+    if (r.index == 0 && b != 0xF4) continue;
+    if (r.index == 1 && b != 0xF3) { r.index = 0; continue; }
+    if (r.index == 2 && b != 0xF2) { r.index = 0; continue; }
+    if (r.index == 3 && b != 0xF1) { r.index = 0; continue; }
+
+    r.buffer[r.index++] = b;
+
+    if (r.index >= 23) { // Основний кадр даних
+      r.frameCount++;
+      unsigned long now = millis();
+      
+      byte status = r.buffer[8]; // 0x00=Немає, 0x01=Рух, 0x02=Нерухома, 0x03=Обидва
+      bool detectedNow = (status != 0x00);
+
+      // Фіксація початку руху
+      if (detectedNow && !r.isDetected) {
+        r.detectStartTime = now;
+        Serial.print(">>> ["); Serial.print(name); 
+        Serial.print("] СРАЦЮВАННЯ! Дeльта від минулого кадру: ");
+        Serial.print(now - r.lastPacketTime); Serial.println(" ms");
+      }
+
+      // Дистанція (2 байти на кожну ціль)
+      r.moveDist = r.buffer[9] | (r.buffer[10] << 8);
+      r.staticDist = r.buffer[12] | (r.buffer[13] << 8);
+
+      r.targetState = status;
+      r.isDetected = detectedNow;
+      r.lastPacketTime = now;
+
+      // Скидання буфера при повному кадрі (29 байт)
+      if (r.index >= 29) {
+        r.index = 0;
+      }
+    }
+  }
+
+  // Таймаут втрати зв'язку (> 500 мс)
+  if (millis() - r.lastPacketTime > 500 && r.isDetected) {
+    r.isDetected = false;
+    r.targetState = 0;
+    Serial.print("<<< ["); Serial.print(name); Serial.println("] ВТРАТА ЗВ'ЯЗКУ / СКИДАННЯ");
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  while (!Serial && millis() < 3000);
+
+  Serial1.begin(256000); // Радар 1 (18 TX / 19 RX)
+  Serial2.begin(256000); // Радар 0 (16 TX / 17 RX)
+
+  Serial.println("\n=== ТЕСТ ТАЙМІНГІВ ТА КАДРІВ LD2410 ===");
+}
+
+void loop() {
+  processRadarDiag(Serial2, r0, "RADAR 0 (Serial2)");
+  processRadarDiag(Serial1, r1, "RADAR 1 (Serial1)");
+
+  // Вивід статистики раз на 250 мс
+  static unsigned long lastLog = 0;
+  if (millis() - lastLog >= 250) {
+    lastLog = millis();
+
+    Serial.print("R0: ");
+    if (r0.isDetected) {
+      Serial.print("DET (St:"); Serial.print(r0.targetState);
+      Serial.print(", M_Dist:"); Serial.print(r0.moveDist); Serial.print("cm)");
+    } else {
+      Serial.print("OFF                   ");
+    }
+
+    Serial.print(" | R1: ");
+    if (r1.isDetected) {
+      Serial.print("DET (St:"); Serial.print(r1.targetState);
+      Serial.print(", M_Dist:"); Serial.print(r1.moveDist); Serial.print("cm)");
+    } else {
+      Serial.print("OFF                   ");
+    }
+
+    Serial.print(" | FPS R0: "); Serial.print(r0.frameCount * 4);
+    Serial.print(" | FPS R1: "); Serial.println(r1.frameCount * 4);
+
+    r0.frameCount = 0;
+    r1.frameCount = 0;
+  }
+}
