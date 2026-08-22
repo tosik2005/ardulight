@@ -48,54 +48,46 @@ Since the LEDs are white, the R/G/B values are not considered as color, but as b
 
 ---
 
-## 5. Топологія підключення пікселів
+## 5. Pixel connection topology
 
-На макеті використовуються 2 пікселі.
+The layout uses 2 pixel.
 
-Можливі два варіанти підключення:
+Two connection options are possible:
 
-### 5.1. Послідовне підключення
+### 5.1. Serial connection:
 
-Використовується для послідовної адресції пікселів.
+Used for sequential pixel addressing
 
-Очікувана логіка нумерації:
+Expected numbering logic:
 
-- перший піксель: індекс 0;
-- другий піксель: індекс 1;
-- далі за потреби: 2, 3, ..., n.
+- first pixel: index 0;
+- second pixel: index 1;
+- Further as needed: 2, 3, ..., n.
 
-### 5.2. Паралельне підключення
+### 5.2. Parallel connection
 
-Використовується для паралельної роботи з двома пікселями одночасно.
+Used for parallel work with two pixels at the same time
 
-пікселі отримують однакові дані;
-
----
-
-## 6. Апаратна гілка
-
-Пов’язана розмова/гілка:
-
-- «Апаратна реалізація світлодіодної стрічки».
-
-У цьому розділі README фіксуються:
-
-- фізичне підключення;
-- живлення;
-- data-лінії;
-- кількість пікселів;
-- структура блоків світлодіодів;
-- обмеження струму;
-- особливості WS2811;
-- перевірка на макеті.
+pixels receive the same data;
 
 ---
 
-## 7. Програмна гілка
+## 6. Hardware branch
 
-Пов’язана розмова/гілка:
+This README section fixes:
 
-- «Arduino Mega R3 2560 programming».
+- physical connection;
+- power supply;
+- data-lines;
+- number of pixels;
+- structure of LED blocks;
+- current limitation;
+- features of WS2811;
+- checking in the layout.
+
+---
+
+## 7. Software branch
 
 У цьому розділі README фіксуються:
 

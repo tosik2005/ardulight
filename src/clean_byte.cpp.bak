@@ -1,0 +1,35 @@
+#include <Arduino.h>
+
+void printHexByte(byte b) {
+  if (b < 0x10) Serial.print('0');
+  Serial.print(b, HEX);
+  Serial.print(' ');
+}
+
+void setup() {
+  Serial.begin(115200);
+  Serial1.begin(256000); // Radar 1
+  Serial2.begin(256000); // Radar 0
+}
+
+void loop() {
+  // Логування Radar 1 (Serial1)
+  while (Serial1.available()) {
+    byte b = Serial1.read();
+    if (b == 0xF4) {
+      Serial.println();
+      Serial.print("R1: ");
+    }
+    printHexByte(b);
+  }
+
+  // Логування Radar 0 (Serial2)
+  while (Serial2.available()) {
+    byte b = Serial2.read();
+    if (b == 0xF4) {
+      Serial.println();
+      Serial.print("R0: ");
+    }
+    printHexByte(b);
+  }
+}
